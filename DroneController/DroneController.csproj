@@ -1,20 +1,20 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <Version>1.0.1</Version>
+        <Version>1.0.2</Version>
+        <AssemblyVersion>1.0.2.0</AssemblyVersion>
+        <FileVersion>1.0.2.0</FileVersion>
         <OutputType>Exe</OutputType>
         <TargetFramework>net8.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <LangVersion>default</LangVersion>
-        <AssemblyVersion>1.0.1.0</AssemblyVersion>
-        <FileVersion>1.0.1.0</FileVersion>
     </PropertyGroup>
 
     <ItemGroup>
-      <PackageReference Include="Asv.Mavlink" Version="4.0.0" />
-      <PackageReference Include="Spectre.Console" Version="0.50.0" />
-      <PackageReference Include="Spectre.Console.Cli" Version="0.50.0" />
+        <PackageReference Include="Asv.Mavlink" Version="4.0.0"/>
+        <PackageReference Include="Spectre.Console" Version="0.50.0"/>
+        <PackageReference Include="Spectre.Console.Cli" Version="0.50.0"/>
     </ItemGroup>
 
 </Project>

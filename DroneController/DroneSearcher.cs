@@ -10,32 +10,36 @@ public record SearcherConfig(string RouterHost, int RouterPort, string RouterId)
 
 public class DroneSearcher
 {
-    private const int InitilizationLimitMs =  10 * 1000;
+    private const int InitilizationLimitMs = 10 * 1000;
     private const int SystemId = 255;
     private const int ComponentId = 255;
     private const int DeviceBrowserTimeoutMs = 1 * 1000;
     private const int DeviceBrowserCheckIntervalMs = 30 * 1000;
-    private const int SearchDeviceTimeout = 60 * 1000;
+    private const int SearchDeviceTimeoutSecs = 5;
 
-    public async Task<DroneController?> SearchDrone(SearcherConfig config)
+    public async Task<Drone?> SearchDrone(SearcherConfig config)
     {
         var router = CreateRouter(config);
         var port = CreatePort(router, config);
 
         var deviceExplorer = CreateDeviceExplorer(router);
         var device = await SearchDevice(deviceExplorer);
+
+        if (device is null) return null;
+
         await device.WaitUntilConnectAndInit(InitilizationLimitMs, TimeProvider.System);
 
         var heartbeatClient = device.GetMicroservice<IHeartbeatClient>();
-        if (heartbeatClient is null) throw new Exception("No heartbeat client found");
+        if (heartbeatClient is null) throw new Exception("No heartbeat client found; cannot use this device");
 
         var controlClient = device.GetMicroservice<IControlClient>();
-        if (controlClient is null) throw new Exception("No control client found");
+        if (controlClient is null) throw new Exception("No control client found; cannot use this device");
 
         var positionClient = device.GetMicroservice<IPositionClient>();
-        if (positionClient is null) throw new Exception("No position client found");
+        if (positionClient is null) throw new Exception("No position client found; cannot use this device");
 
-        return new DroneController(router, port, deviceExplorer, device, heartbeatClient, controlClient, positionClient);
+        return new Drone(router, port, deviceExplorer, device, heartbeatClient, controlClient,
+            positionClient);
     }
 
     private IDeviceExplorer CreateDeviceExplorer(IProtocolRouter router)
@@ -48,7 +52,7 @@ public class DroneSearcher
             builder.SetConfig(new ClientDeviceBrowserConfig
             {
                 DeviceTimeoutMs = DeviceBrowserTimeoutMs,
-                DeviceCheckIntervalMs = DeviceBrowserCheckIntervalMs,
+                DeviceCheckIntervalMs = DeviceBrowserCheckIntervalMs
             });
             builder.Factories.RegisterDefaultDevices(
                 new MavlinkIdentity(identity.SystemId, identity.ComponentId),
@@ -57,30 +61,21 @@ public class DroneSearcher
         });
     }
 
-    private async Task<IClientDevice> SearchDevice(IDeviceExplorer explorer)
+    private async Task<IClientDevice?> SearchDevice(IDeviceExplorer explorer)
     {
-        var tcs = new TaskCompletionSource();
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(SearchDeviceTimeout), TimeProvider.System);
-        await using var s = cts.Token.Register(() => tcs.TrySetCanceled());
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(SearchDeviceTimeoutSecs), TimeProvider.System);
 
-        IClientDevice? drone = null;
-        using var sub = explorer.Devices
-            .ObserveAdd()
-            .Take(1)
-            .Subscribe(kvp =>
-            {
-                drone = kvp.Value.Value;
-                tcs.TrySetResult();
-            });
-
-        await tcs.Task;
-
-        if (drone is null)
+        try
         {
-            throw new Exception("Drone not found");
+            return await explorer.Devices
+                .ObserveAdd()
+                .Select(kvp => kvp.Value.Value)
+                .FirstAsync(cts.Token);
         }
-
-        return drone;
+        catch (TaskCanceledException)
+        {
+            return null;
+        }
     }
 
     private IProtocolRouter CreateRouter(SearcherConfig config)
