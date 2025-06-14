@@ -73,8 +73,8 @@ namespace DroneController
                 }
                 catch (Exception ex)
                 {
-                    AnsiConsole.WriteLine($"Error: {ex}");
-                    AnsiConsole.WriteLine("Press any key to continue...");
+                    AnsiConsole.MarkupLineInterpolated($"[red]Error:[/] {ex.Message}");
+                    AnsiConsole.MarkupLine("[white]Hint: Press any key to continue...[/]");
                     Console.ReadKey();
                 }
             }
