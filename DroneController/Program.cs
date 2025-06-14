@@ -48,11 +48,11 @@ namespace DroneController
                         case "takeoff":
                             var altTakeoff = AnsiConsole.Prompt(new TextPrompt<int>("Alt (in meters)?"));
                             await drone.TakeOff(altTakeoff);
-                            AnsiConsole.WriteLine("Success!");
+                            AnsiConsole.MarkupLine("[green]Takeoff successfully![/]");
                             break;
                         case "land":
                             await drone.Land();
-                            AnsiConsole.WriteLine("Success!");
+                            AnsiConsole.MarkupLine("[green]Land successfully![/]");
                             break;
                         case "go":
                             var lat = AnsiConsole.Prompt(new TextPrompt<double>("Latitude:"));
@@ -61,13 +61,13 @@ namespace DroneController
 
                             await drone.GoTo(lat, lon, altGo);
 
-                            AnsiConsole.WriteLine("Success!");
+                            AnsiConsole.MarkupLine("[green]Drone is moving to the provided position![/]");
                             break;
                         case "status":
                             ShowLiveStatus(drone);
                             break;
                         case "exit":
-                            AnsiConsole.WriteLine("Bye!");
+                            AnsiConsole.MarkupLine("[white]Bye![/]");
                             return 0;
                     }
                 }
