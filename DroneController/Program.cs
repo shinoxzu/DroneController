@@ -53,7 +53,7 @@ internal sealed class DroneControllerCommand : AsyncCommand<DroneControllerComma
                     .Title("Available commands:")
                     .PageSize(10)
                     .HighlightStyle(new Style().Foreground(Color.FromHex("#9cd6ff")))
-                    .AddChoices("takeoff", "land", "go", "status", "exit", "help"));
+                    .AddChoices("takeoff", "land", "go", "status", "exit"));
 
             try
             {
