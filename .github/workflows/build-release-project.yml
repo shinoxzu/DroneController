@@ -7,7 +7,7 @@ on:
 
 jobs:
   deploy:
-    runs-on: macos-latest
+    runs-on: ubuntu-latest
     permissions:
       contents: write
 
@@ -18,11 +18,51 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
-      - name: Publish
-        run: dotnet publish ./DroneController/DroneController.csproj -c Release --self-contained true -p:PublishSingleFile=true -o ./out
+      - name: Publish for Windows
+        run: |
+          dotnet publish ./DroneController/DroneController.csproj \
+            -c Release \
+            --self-contained true \
+            -p:PublishSingleFile=true \
+            -o ./out/windows \
+            -r win-x64 \
+            -p:DebugType=None
 
-      - name: Create release Release
+      - name: Publish for Linux
+        run: |
+          dotnet publish ./DroneController/DroneController.csproj \
+            -c Release \
+            --self-contained true \
+            -p:PublishSingleFile=true \
+            -o ./out/linux \
+            -r linux-x64 \
+            -p:DebugType=None
+
+      - name: Create archive for Linux
+        run: |
+          cd ./out/linux
+          tar czf ../release-linux.tar.gz *
+
+      - name: Publish for macOS
+        run: |
+          dotnet publish ./DroneController/DroneController.csproj \
+            -c Release \
+            --self-contained true \
+            -p:PublishSingleFile=true \
+            -o ./out/macos \
+            -r osx-arm64 \
+            -p:DebugType=None
+
+      - name: Create archive for macOS
+        run: |
+          cd ./out/macos
+          zip -r ../release-macos.zip *
+
+      - name: Create release
         uses: softprops/action-gh-release@v2
         with:
           name: Release Build
-          files: ./out/*
+          files: |
+            ./out/windows/DroneController.exe
+            ./out/release-linux.tar.gz
+            ./out/release-macos.zip
