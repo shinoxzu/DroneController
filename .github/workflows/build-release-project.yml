@@ -1,0 +1,31 @@
+name: Build and release project
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: macos-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Publish
+        run: dotnet publish -c Release --self-contained true -p:PublishSingleFile=true -o ./out
+
+      - name: Create release Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Release Build
+          files: ./out/*
