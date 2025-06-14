@@ -2,14 +2,14 @@ name: Build and release project
 
 on:
   push:
-    branches:
-      - main
+    tags:
+      - "*"
 
 jobs:
   deploy:
     runs-on: macos-latest
     permissions:
-      contents: read
+      contents: write
 
     steps:
       - uses: actions/checkout@v4
@@ -18,11 +18,8 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
-      - name: Restore
-        run: dotnet restore
-
       - name: Publish
-        run: dotnet publish -c Release --self-contained true -p:PublishSingleFile=true -o ./out
+        run: dotnet publish ./DroneController/DroneController.csproj -c Release --self-contained true -p:PublishSingleFile=true -o ./out
 
       - name: Create release Release
         uses: softprops/action-gh-release@v2
