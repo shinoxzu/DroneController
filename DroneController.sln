@@ -1,0 +1,16 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DroneController", "DroneController\DroneController.csproj", "{312E3973-B133-48DD-A11A-9B1DB1866DD0}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{312E3973-B133-48DD-A11A-9B1DB1866DD0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{312E3973-B133-48DD-A11A-9B1DB1866DD0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{312E3973-B133-48DD-A11A-9B1DB1866DD0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{312E3973-B133-48DD-A11A-9B1DB1866DD0}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
