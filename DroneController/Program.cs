@@ -15,98 +15,191 @@ namespace DroneController
         public override async Task<int> ExecuteAsync(CommandContext context, Settings settings)
         {
             var searcherConfig = new SearcherConfig(settings.RouterHost, settings.RouterPort, settings.RouterId);
-            await using var searcher = new DroneSearcher(searcherConfig);
 
+            await using var searcher = new DroneSearcher(searcherConfig);
             await using var drone = await AnsiConsole.Status()
                 .StartAsync("Searching the device...", async _ => await searcher.SearchDrone());
 
             if (drone is null)
             {
-                AnsiConsole.MarkupLine(
-                    "[red]Cannot find the device :(\nTry to use a different router host and port.[/]");
+                AnsiConsole.MarkupLine("[red]Cannot find the device :(\nTry to use a different connection params.[/]");
                 return 0;
             }
 
-            using var nameSubscription = drone.Name.Subscribe(v =>
-            {
-                AnsiConsole.MarkupLineInterpolated(
-                    $"Named of the used drone: [#9cd6ff]{drone.Name.CurrentValue}[/]");
-            });
+            var layout = CreateBasicLayout();
+            var cancellationToken = RegisterOnGracefulShutdown();
 
-            while (true)
+            while (!cancellationToken.IsCancellationRequested)
             {
-                var command = await AnsiConsole.PromptAsync(
-                    new SelectionPrompt<string>()
-                        .Title("Available commands:")
-                        .PageSize(10)
-                        .HighlightStyle(new Style().Foreground(Color.FromHex("#9cd6ff")))
-                        .AddChoices("takeoff", "land", "go", "status", "exit"));
+                AnsiConsole.Clear();
 
                 try
                 {
-                    switch (command)
+                    var key = await WaitForControlKeyAndRenderAsync(layout, drone, cancellationToken.Token);
+                    if (key is null or ConsoleKey.E) break;
+
+                    switch (key.Value)
                     {
-                        case "takeoff":
-                            var altTakeoff = AnsiConsole.Prompt(new TextPrompt<int>("Alt (in meters)?"));
-                            await drone.TakeOff(altTakeoff);
-                            AnsiConsole.MarkupLine("[green]Takeoff successfully![/]");
+                        case ConsoleKey.T:
+                        {
+                            await AnsiConsole.Console.AlternateScreenAsync(async () =>
+                            {
+                                var alt = await AnsiConsole.PromptAsync(
+                                    new TextPrompt<int>("Alt (in meters):"), cancellationToken.Token);
+                                await drone.TakeOff(alt);
+                            });
                             break;
-                        case "land":
+                        }
+                        case ConsoleKey.L:
+                        {
                             await drone.Land();
-                            AnsiConsole.MarkupLine("[green]Land successfully![/]");
                             break;
-                        case "go":
-                            var lat = AnsiConsole.Prompt(new TextPrompt<double>("Latitude:"));
-                            var lon = AnsiConsole.Prompt(new TextPrompt<double>("Longitude:"));
-                            var altGo = AnsiConsole.Prompt(new TextPrompt<double>("Altitude (in meters):"));
+                        }
+                        case ConsoleKey.G:
+                        {
+                            await AnsiConsole.Console.AlternateScreenAsync(async () =>
+                            {
+                                var lat = await AnsiConsole.PromptAsync(
+                                    new TextPrompt<double>("Latitude:"), cancellationToken.Token);
+                                var lon = await AnsiConsole.PromptAsync(
+                                    new TextPrompt<double>("Longitude:"), cancellationToken.Token);
+                                var alt = await AnsiConsole.PromptAsync(
+                                    new TextPrompt<double>("Altitude (in meters):"), cancellationToken.Token);
 
-                            await drone.GoTo(new GeoPoint(lat, lon, altGo));
+                                await drone.GoTo(new GeoPoint(lat, lon, alt));
+                            });
 
-                            AnsiConsole.MarkupLine("[green]Drone is moving to the provided position![/]");
                             break;
-                        case "status":
-                            ShowLiveStatus(drone);
+                        }
+                        case ConsoleKey.E:
+                        {
                             break;
-                        case "exit":
-                            AnsiConsole.MarkupLine("[white]Bye![/]");
-                            return 0;
+                        }
                     }
                 }
                 catch (Exception ex)
                 {
-                    AnsiConsole.MarkupLineInterpolated($"[red]Error:[/] {ex.Message}");
-                    AnsiConsole.MarkupLine("[white]Hint: Press any key to continue...[/]");
-                    Console.ReadKey();
+                    await AnsiConsole.Console.AlternateScreenAsync(async () =>
+                    {
+                        AnsiConsole.MarkupLineInterpolated($"[red]Error:[/] {ex.Message}");
+                        AnsiConsole.MarkupLine("[white]Hint: Press any key to continue...[/]");
+                        await AnsiConsole.Console.Input.ReadKeyAsync(true, cancellationToken.Token);
+                    });
                 }
             }
+
+            AnsiConsole.Clear();
+            AnsiConsole.MarkupLine("[white]Bye![/]");
+
+            return 0;
         }
 
-        private void ShowLiveStatus(Drone drone)
+        private async Task<ConsoleKey?> WaitForControlKeyAndRenderAsync(
+            Layout layout,
+            Drone drone,
+            CancellationToken cancelToken)
         {
-            AnsiConsole.Console.AlternateScreen(() =>
-            {
-                AnsiConsole.MarkupLine("[white]Hint: Press Esc to return to the menu[/]\n");
+            ConsoleKey? result = null;
 
-                using var sub = drone.PositionObserver.Subscribe(s =>
+            await AnsiConsole.Live(layout)
+                .AutoClear(true)
+                .StartAsync(async ctx =>
                 {
-                    if (s is null) return;
-                    AnsiConsole.Markup("\r" +
-                                       $"[#9cd6ff]Lat[/]: {s.Lat / 10_000_000f} | " +
-                                       $"[#9cd6ff]Lon[/]: {s.Lon / 10_000_000f} | " +
-                                       $"[#9cd6ff]Alt[/]: {s.Alt / 1_000f}m");
+                    using var nameSubscription = drone.Name.Subscribe(v =>
+                    {
+                        if (v is null) return;
+
+                        layout["Status"]["Name"].Update(new Panel(
+                                Align.Center(
+                                    Markup.FromInterpolated(
+                                        $"Named of the used drone: [#9cd6ff]{v}[/]"),
+                                    VerticalAlignment.Middle))
+                            .Expand());
+                    });
+
+                    using var positionSubscription = drone.PositionObserver.Subscribe(s =>
+                    {
+                        if (s is null) return;
+
+                        layout["Status"]["Position"].Update(new Panel(
+                                Align.Center(
+                                    new Markup(
+                                        $"[#9cd6ff]Lat[/]: {s.Lat / 10_000_000f} | " +
+                                        $"[#9cd6ff]Lon[/]: {s.Lon / 10_000_000f} | " +
+                                        $"[#9cd6ff]Alt[/]: {s.Alt / 1_000f}m"),
+                                    VerticalAlignment.Middle))
+                            .Expand());
+                    });
+
+                    while (!cancelToken.IsCancellationRequested)
+                    {
+                        // we have to refresh context only in one ("main") thread per time
+                        ctx.Refresh();
+
+                        if (!AnsiConsole.Console.Input.IsKeyAvailable())
+                        {
+                            await Task.Delay(100, cancelToken);
+                            continue;
+                        }
+
+                        var keyInfo = await AnsiConsole.Console
+                            .Input
+                            .ReadKeyAsync(true, cancelToken);
+                        if (keyInfo is null)
+                            continue;
+
+                        switch (keyInfo.Value.Key)
+                        {
+                            case ConsoleKey.T:
+                            case ConsoleKey.L:
+                            case ConsoleKey.G:
+                            case ConsoleKey.E:
+                                result = keyInfo.Value.Key;
+                                return;
+                        }
+                    }
                 });
 
-                while (true)
-                {
-                    if (Console.KeyAvailable && Console.ReadKey(true).Key == ConsoleKey.Escape)
-                    {
-                        AnsiConsole.WriteLine();
-                        break;
-                    }
+            return result;
+        }
 
-                    Thread.Sleep(100);
-                }
-            });
+        private CancellationTokenSource RegisterOnGracefulShutdown()
+        {
+            var cancellationToken = new CancellationTokenSource();
+
+            Console.CancelKeyPress += (_, e) =>
+            {
+                e.Cancel = true;
+                cancellationToken.Cancel();
+            };
+
+            return cancellationToken;
+        }
+
+        private Layout CreateBasicLayout()
+        {
+            var layout = new Layout("Root")
+                .SplitColumns(
+                    new Layout("Main"),
+                    new Layout("Status")
+                        .SplitRows(
+                            new Layout("Name"),
+                            new Layout("Position")));
+
+            var commandsPanel = new Panel(new Rows(
+                new Markup("[white]t[/] takeoff"),
+                new Markup("[white]l[/] land"),
+                new Markup("[white]g[/] go"),
+                new Markup("[white]e[/] exit")
+            ));
+            commandsPanel.Header = new PanelHeader("Actions");
+            commandsPanel.HeaderAlignment(Justify.Center);
+            commandsPanel.Border = BoxBorder.Rounded;
+            commandsPanel.Padding = new Padding(2, 1);
+
+            layout["Main"].Update(new Panel(Align.Center(commandsPanel, VerticalAlignment.Middle)).Expand());
+
+            return layout;
         }
 
         public sealed class Settings : CommandSettings

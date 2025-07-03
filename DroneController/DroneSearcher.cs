@@ -8,7 +8,7 @@ namespace DroneController;
 
 public record SearcherConfig(string RouterHost, int RouterPort, string RouterId);
 
-public class DroneSearcher: IDisposable, IAsyncDisposable
+public class DroneSearcher : IDisposable, IAsyncDisposable
 {
     private const int InitilizationLimitMs = 10 * 1000;
     private const int SystemId = 255;
@@ -18,17 +18,31 @@ public class DroneSearcher: IDisposable, IAsyncDisposable
     private const int SearchDeviceTimeoutSecs = 5;
 
     private readonly SearcherConfig _config;
-    private readonly IProtocolRouter _router;
-    private readonly IProtocolPort _port;
     private readonly IDeviceExplorer _deviceExplorer;
-    
+    private readonly IProtocolPort _port;
+    private readonly IProtocolRouter _router;
+
     public DroneSearcher(SearcherConfig config)
     {
         _config = config;
-        
+
         _router = CreateRouter();
         _port = CreatePort(_router);
         _deviceExplorer = CreateDeviceExplorer(_router);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        await _router.DisposeAsync();
+        await _deviceExplorer.DisposeAsync();
+        await _port.DisposeAsync();
+    }
+
+    public void Dispose()
+    {
+        _router.Dispose();
+        _deviceExplorer.Dispose();
+        _port.Dispose();
     }
 
     public async Task<Drone?> SearchDrone()
@@ -37,7 +51,7 @@ public class DroneSearcher: IDisposable, IAsyncDisposable
         if (device is null) return null;
 
         await device.WaitUntilConnectAndInit(InitilizationLimitMs, TimeProvider.System);
-        
+
         return new Drone(device);
     }
 
@@ -95,19 +109,5 @@ public class DroneSearcher: IDisposable, IAsyncDisposable
             p.Host = _config.RouterHost;
             p.Port = _config.RouterPort;
         });
-    }
-
-    public void Dispose()
-    {
-        _router.Dispose();
-        _deviceExplorer.Dispose();
-        _port.Dispose();
-    }
-
-    public async ValueTask DisposeAsync()
-    {
-        await _router.DisposeAsync();
-        await _deviceExplorer.DisposeAsync();
-        await _port.DisposeAsync();
     }
 }

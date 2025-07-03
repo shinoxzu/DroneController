@@ -17,7 +17,7 @@ public class Drone : IAsyncDisposable, IDisposable
     public Drone(IClientDevice device)
     {
         _device = device;
-        
+
         _heartbeatClient = device.GetMicroservice<IHeartbeatClient>() ??
                            throw new Exception("No heartbeat client found; cannot use this device");
         _controlClient = device.GetMicroservice<IControlClient>() ??
@@ -33,7 +33,7 @@ public class Drone : IAsyncDisposable, IDisposable
     public async ValueTask DisposeAsync()
     {
         await _device.DisposeAsync();
-        
+
         await _positionClient.DisposeAsync();
         await _controlClient.DisposeAsync();
         await _heartbeatClient.DisposeAsync();
