@@ -1,12 +1,12 @@
 # DroneController
 
-A CLI utility for controlling UAVs using the MAVLink protocol, built with the Asv.Mavlink implementation.
+A CLI utility for controlling UAVs using the MAVLink protocol, built with the [Asv.Mavlink implementation](https://github.com/asv-soft/asv-mavlink).
 
 ## Installation
 
 ### Downloading
 
-Download the latest binary for your platform from the releases section. 
+Download the latest binary for your platform from the [releases section](https://github.com/shinoxzu/DroneController/releases). 
 
 ### Building
 
