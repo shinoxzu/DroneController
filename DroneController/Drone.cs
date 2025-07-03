@@ -6,49 +6,46 @@ using R3;
 
 namespace DroneController;
 
-public class Drone : IAsyncDisposable
+public class Drone : IAsyncDisposable, IDisposable
 {
     private readonly IControlClient _controlClient;
-    private readonly IDeviceExplorer _deviceExplorer;
-    private readonly IClientDevice _drone;
+    private readonly IClientDevice _device;
 
     private readonly IHeartbeatClient _heartbeatClient;
-    private readonly IProtocolPort _port;
     private readonly IPositionClient _positionClient;
-    private readonly IProtocolRouter _router;
 
-    public Drone(
-        IProtocolRouter router,
-        IProtocolPort port,
-        IDeviceExplorer deviceExplorer,
-        IClientDevice drone,
-        IHeartbeatClient heartbeatClient,
-        IControlClient controlClient,
-        IPositionClient positionClient)
+    public Drone(IClientDevice device)
     {
-        _router = router;
-        _port = port;
-        _deviceExplorer = deviceExplorer;
-        _drone = drone;
-        _heartbeatClient = heartbeatClient;
-        _controlClient = controlClient;
-        _positionClient = positionClient;
+        _device = device;
+        
+        _heartbeatClient = device.GetMicroservice<IHeartbeatClient>() ??
+                           throw new Exception("No heartbeat client found; cannot use this device");
+        _controlClient = device.GetMicroservice<IControlClient>() ??
+                         throw new Exception("No control client found; cannot use this device");
+        _positionClient = device.GetMicroservice<IPositionClient>() ??
+                          throw new Exception("No position client found; cannot use this device");
     }
 
     public ReadOnlyReactiveProperty<GlobalPositionIntPayload?> PositionObserver => _positionClient.GlobalPosition;
 
-    public ReadOnlyReactiveProperty<string?> Name => _drone.Name;
+    public ReadOnlyReactiveProperty<string?> Name => _device.Name;
 
     public async ValueTask DisposeAsync()
     {
-        await _drone.DisposeAsync();
-        await _router.DisposeAsync();
-        await _port.DisposeAsync();
-        await _deviceExplorer.DisposeAsync();
-
+        await _device.DisposeAsync();
+        
         await _positionClient.DisposeAsync();
         await _controlClient.DisposeAsync();
         await _heartbeatClient.DisposeAsync();
+    }
+
+    public void Dispose()
+    {
+        _device.Dispose();
+
+        _positionClient.Dispose();
+        _controlClient.Dispose();
+        _heartbeatClient.Dispose();
     }
 
     public async Task Land()

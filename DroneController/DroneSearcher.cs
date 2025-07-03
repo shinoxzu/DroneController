@@ -8,7 +8,7 @@ namespace DroneController;
 
 public record SearcherConfig(string RouterHost, int RouterPort, string RouterId);
 
-public class DroneSearcher
+public class DroneSearcher: IDisposable, IAsyncDisposable
 {
     private const int InitilizationLimitMs = 10 * 1000;
     private const int SystemId = 255;
@@ -17,29 +17,28 @@ public class DroneSearcher
     private const int DeviceBrowserCheckIntervalMs = 30 * 1000;
     private const int SearchDeviceTimeoutSecs = 5;
 
-    public async Task<Drone?> SearchDrone(SearcherConfig config)
+    private readonly SearcherConfig _config;
+    private readonly IProtocolRouter _router;
+    private readonly IProtocolPort _port;
+    private readonly IDeviceExplorer _deviceExplorer;
+    
+    public DroneSearcher(SearcherConfig config)
     {
-        var router = CreateRouter(config);
-        var port = CreatePort(router, config);
+        _config = config;
+        
+        _router = CreateRouter();
+        _port = CreatePort(_router);
+        _deviceExplorer = CreateDeviceExplorer(_router);
+    }
 
-        var deviceExplorer = CreateDeviceExplorer(router);
-        var device = await SearchDevice(deviceExplorer);
-
+    public async Task<Drone?> SearchDrone()
+    {
+        var device = await SearchDevice(_deviceExplorer);
         if (device is null) return null;
 
         await device.WaitUntilConnectAndInit(InitilizationLimitMs, TimeProvider.System);
-
-        var heartbeatClient = device.GetMicroservice<IHeartbeatClient>();
-        if (heartbeatClient is null) throw new Exception("No heartbeat client found; cannot use this device");
-
-        var controlClient = device.GetMicroservice<IControlClient>();
-        if (controlClient is null) throw new Exception("No control client found; cannot use this device");
-
-        var positionClient = device.GetMicroservice<IPositionClient>();
-        if (positionClient is null) throw new Exception("No position client found; cannot use this device");
-
-        return new Drone(router, port, deviceExplorer, device, heartbeatClient, controlClient,
-            positionClient);
+        
+        return new Drone(device);
     }
 
     private IDeviceExplorer CreateDeviceExplorer(IProtocolRouter router)
@@ -78,7 +77,7 @@ public class DroneSearcher
         }
     }
 
-    private IProtocolRouter CreateRouter(SearcherConfig config)
+    private IProtocolRouter CreateRouter()
     {
         var protocol = Protocol.Create(builder =>
         {
@@ -86,15 +85,29 @@ public class DroneSearcher
             builder.Features.RegisterBroadcastFeature<MavlinkMessage>();
             builder.Formatters.RegisterSimpleFormatter();
         });
-        return protocol.CreateRouter(config.RouterId);
+        return protocol.CreateRouter(_config.RouterId);
     }
 
-    private IProtocolPort CreatePort(IProtocolRouter router, SearcherConfig config)
+    private IProtocolPort CreatePort(IProtocolRouter router)
     {
         return router.AddTcpClientPort(p =>
         {
-            p.Host = config.RouterHost;
-            p.Port = config.RouterPort;
+            p.Host = _config.RouterHost;
+            p.Port = _config.RouterPort;
         });
+    }
+
+    public void Dispose()
+    {
+        _router.Dispose();
+        _deviceExplorer.Dispose();
+        _port.Dispose();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        await _router.DisposeAsync();
+        await _deviceExplorer.DisposeAsync();
+        await _port.DisposeAsync();
     }
 }

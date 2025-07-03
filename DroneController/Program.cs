@@ -15,10 +15,10 @@ namespace DroneController
         public override async Task<int> ExecuteAsync(CommandContext context, Settings settings)
         {
             var searcherConfig = new SearcherConfig(settings.RouterHost, settings.RouterPort, settings.RouterId);
-            var searcher = new DroneSearcher();
+            await using var searcher = new DroneSearcher(searcherConfig);
 
             await using var drone = await AnsiConsole.Status()
-                .StartAsync("Searching the device...", async _ => await searcher.SearchDrone(searcherConfig));
+                .StartAsync("Searching the device...", async _ => await searcher.SearchDrone());
 
             if (drone is null)
             {
