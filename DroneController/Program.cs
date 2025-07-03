@@ -27,7 +27,7 @@ namespace DroneController
             }
 
             var layout = CreateBasicLayout();
-            var cancellationToken = RegisterOnGracefulShutdown();
+            using var cancellationToken = RegisterOnGracefulShutdown();
 
             while (!cancellationToken.IsCancellationRequested)
             {
