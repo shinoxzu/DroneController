@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel;
+using Asv.Common;
 using DroneController;
 using R3;
 using Spectre.Console;
@@ -59,7 +60,7 @@ namespace DroneController
                             var lon = AnsiConsole.Prompt(new TextPrompt<double>("Longitude:"));
                             var altGo = AnsiConsole.Prompt(new TextPrompt<double>("Altitude (in meters):"));
 
-                            await drone.GoTo(lat, lon, altGo);
+                            await drone.GoTo(new GeoPoint(lat, lon, altGo));
 
                             AnsiConsole.MarkupLine("[green]Drone is moving to the provided position![/]");
                             break;

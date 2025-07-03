@@ -63,9 +63,9 @@ public class Drone : IAsyncDisposable
         await _controlClient.TakeOff(alt);
     }
 
-    public async Task GoTo(double lat, double lon, double alt)
+    public async Task GoTo(GeoPoint point)
     {
         await _controlClient.SetGuidedMode();
-        await _controlClient.GoTo(new GeoPoint(lat, lon, alt));
+        await _controlClient.GoTo(point);
     }
 }
